@@ -1,0 +1,12 @@
+[project]
+name = "flashcard-enhancer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.3.3",
+    "pydantic>=2.12.3",
+    "rich>=14.2.0",
+    "structlog>=25.4.0",
+]
