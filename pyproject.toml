@@ -1,7 +1,7 @@
 [project]
 name = "flashcard-enhancer"
 version = "0.1.0"
-description = "Add your description here"
+description = "Convert and enhance Anki flashcards"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,3 +12,10 @@ dependencies = [
     "rich>=14.2.0",
     "structlog>=25.4.0",
 ]
+
+[project.scripts]
+flashcard-enhancer = "flashcard_enhancer.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"

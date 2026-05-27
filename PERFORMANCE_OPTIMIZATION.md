@@ -1,5 +1,8 @@
 # Performance Optimization Analysis
 
+Note: this is a historical implementation note. `README.md` is the current
+source of truth for CLI usage and file paths.
+
 ## Original Code Performance Issues
 
 ### ❌ Sequential Processing (SLOW)

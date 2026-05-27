@@ -1,5 +1,8 @@
 # Pydantic AI Guide for Flashcard Enhancer
 
+Note: this is a historical implementation note. `README.md` is the current
+source of truth for CLI usage and file paths.
+
 ## Overview
 
 This guide explains how we're using **Pydantic AI** to enhance flashcards by generating additional fields using AI.
