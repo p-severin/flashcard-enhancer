@@ -3,6 +3,7 @@ from pathlib import Path
 
 from flashcard_enhancer.converter import convert_apkg_to_csv
 from flashcard_enhancer.enhancer import EnhancementProvider, enhance_csv
+from flashcard_enhancer.run_settings import EnhancementOptions
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,14 @@ async def run_pipeline(
     dry_run: bool = False,
     max_retries: int = 3,
     metadata: dict[str, str] | None = None,
+    options: EnhancementOptions | None = None,
 ) -> PipelineResult:
+    base_options = options or EnhancementOptions(
+        limit=limit,
+        dry_run=dry_run,
+        max_retries=max_retries,
+        metadata=metadata,
+    )
     converted_paths = convert_apkg_to_csv(apkg_path, base_dir)
     planned = 0
     succeeded = 0
@@ -33,16 +41,20 @@ async def run_pipeline(
 
     for csv_path in converted_paths:
         cache_path = Path(cache_dir) / f"{csv_path.stem}.json" if cache_dir else None
+        enhancement_options = EnhancementOptions(
+            limit=base_options.limit,
+            dry_run=base_options.dry_run,
+            max_retries=base_options.max_retries,
+            metadata=base_options.metadata,
+            cache_path=cache_path or base_options.cache_path,
+            resume=base_options.resume,
+        )
         result = await enhance_csv(
             csv_path,
             Path(enhanced_dir) / csv_path.name,
             Path(failed_dir) / f"{csv_path.stem}_failed.csv",
             provider,
-            limit=limit,
-            dry_run=dry_run,
-            max_retries=max_retries,
-            metadata=metadata,
-            cache_path=cache_path,
+            options=enhancement_options,
         )
         planned += result.planned
         succeeded += result.succeeded
@@ -54,4 +66,3 @@ async def run_pipeline(
         succeeded=succeeded,
         failed=failed,
     )
-

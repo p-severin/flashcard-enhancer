@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from flashcard_enhancer.enhancer import RawCard
+from flashcard_enhancer.models import RawCard
 
 PROMPT_VERSION = "example-sentences-v1"
 
@@ -29,4 +29,3 @@ def build_example_prompt(card: RawCard, settings: PromptSettings) -> str:
     Generate a natural example sentence in the source language that uses the
     front field value, then provide its translation in the target language.
     """
-

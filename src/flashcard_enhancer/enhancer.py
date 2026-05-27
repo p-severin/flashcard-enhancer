@@ -5,7 +5,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from flashcard_enhancer.models import AdditionalFields, RawCard
+from flashcard_enhancer.run_settings import EnhancementOptions
 
 REQUIRED_INPUT_COLUMNS = ["Front", "Back", "deck_name"]
 ENHANCED_FIELDNAMES = [
@@ -20,21 +21,6 @@ FAILED_FIELDNAMES = ["Front", "Back", "deck_name", "error"]
 
 class EnhancementError(Exception):
     """Raised when a card CSV cannot be enhanced."""
-
-
-class RawCard(BaseModel):
-    front: str
-    back: str
-    deck_name: str
-
-
-class AdditionalFields(BaseModel):
-    example_sentence_front: str = Field(
-        description="An example sentence using the front field value"
-    )
-    example_sentence_back: str = Field(
-        description="A translation of the example sentence"
-    )
 
 
 @dataclass(frozen=True)
@@ -59,18 +45,28 @@ async def enhance_csv(
     metadata: dict[str, str] | None = None,
     cache_path: str | Path | None = None,
     resume: bool = True,
+    options: EnhancementOptions | None = None,
 ) -> EnhancementRunResult:
-    cards = _read_cards(Path(input_path), limit=limit)
-    if dry_run:
+    run_options = options or EnhancementOptions(
+        limit=limit,
+        dry_run=dry_run,
+        max_retries=max_retries,
+        metadata=metadata,
+        cache_path=Path(cache_path) if cache_path else None,
+        resume=resume,
+    )
+    run_metadata = run_options.effective_metadata()
+    cards = _read_cards(Path(input_path), limit=run_options.limit)
+    if run_options.dry_run:
         return EnhancementRunResult(planned=len(cards), succeeded=0, failed=0)
 
     output = Path(output_path)
-    existing_rows = _read_existing_output(output) if resume else []
+    existing_rows = _read_existing_output(output) if run_options.resume else []
     completed_cards = {
         (row.get("Front", ""), row.get("Back", ""), row.get("deck_name", ""))
         for row in existing_rows
     }
-    cache = _load_cache(Path(cache_path)) if cache_path else {}
+    cache = _load_cache(run_options.cache_path) if run_options.cache_path else {}
     enhanced_rows = []
     failed_rows = []
     for card in cards:
@@ -78,13 +74,15 @@ async def enhance_csv(
         if card_identity in completed_cards:
             continue
 
-        cache_key = _cache_key(card, metadata or {})
+        cache_key = _cache_key(card, run_metadata)
         if cache_key in cache:
             enhanced_rows.append(cache[cache_key])
             continue
 
         try:
-            additional_fields = await _enhance_with_retries(provider, card, max_retries)
+            additional_fields = await _enhance_with_retries(
+                provider, card, run_options.max_retries
+            )
         except Exception as error:
             failed_rows.append(
                 {
@@ -102,14 +100,14 @@ async def enhance_csv(
             "deck_name": card.deck_name,
             "example_sentence_front": additional_fields.example_sentence_front,
             "example_sentence_back": additional_fields.example_sentence_back,
-            **(metadata or {}),
+            **run_metadata,
         }
         enhanced_rows.append(enhanced_row)
         cache[cache_key] = enhanced_row
 
     output_rows = existing_rows + enhanced_rows
     if output_rows:
-        metadata_fieldnames = list((metadata or {}).keys())
+        metadata_fieldnames = list(run_metadata.keys())
         _write_rows(
             output,
             _fieldnames_for_rows(ENHANCED_FIELDNAMES + metadata_fieldnames, output_rows),
@@ -117,8 +115,8 @@ async def enhance_csv(
         )
     if failed_rows:
         _write_rows(Path(failed_path), FAILED_FIELDNAMES, failed_rows)
-    if cache_path:
-        _write_cache(Path(cache_path), cache)
+    if run_options.cache_path:
+        _write_cache(run_options.cache_path, cache)
 
     return EnhancementRunResult(
         planned=len(cards), succeeded=len(enhanced_rows), failed=len(failed_rows)

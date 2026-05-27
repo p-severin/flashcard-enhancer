@@ -2,12 +2,16 @@ import asyncio
 import argparse
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from flashcard_enhancer.ai_provider import PydanticAiEnhancementProvider
 from flashcard_enhancer.converter import ConversionError, convert_apkg_to_csv
 from flashcard_enhancer.enhancer import EnhancementError, enhance_csv
 from flashcard_enhancer.logging_config import log
 from flashcard_enhancer.pipeline import run_pipeline
-from flashcard_enhancer.prompts import PROMPT_VERSION, PromptSettings
+from flashcard_enhancer.run_settings import EnhancementOptions, GenerationSettings
+
+load_dotenv()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -112,7 +116,8 @@ def main(argv: list[str] | None = None) -> int:
                 log.info(f"Wrote {output_path}")
             return 0
         if args.command == "enhance":
-            prompt_settings = PromptSettings(
+            generation_settings = GenerationSettings(
+                model=args.model,
                 source_language=args.source_language,
                 target_language=args.target_language,
                 level=args.level,
@@ -120,7 +125,10 @@ def main(argv: list[str] | None = None) -> int:
             provider = (
                 _dry_run_provider
                 if args.dry_run
-                else PydanticAiEnhancementProvider(args.model, prompt_settings)
+                else PydanticAiEnhancementProvider(
+                    generation_settings.model,
+                    generation_settings.prompt_settings(),
+                )
             )
             result = asyncio.run(
                 enhance_csv(
@@ -128,17 +136,13 @@ def main(argv: list[str] | None = None) -> int:
                     Path(args.output),
                     Path(args.failed_output),
                     provider,
-                    limit=args.limit,
-                    dry_run=args.dry_run,
-                    max_retries=args.max_retries,
-                    metadata={
-                        "prompt_version": PROMPT_VERSION,
-                        "model": args.model,
-                        "source_language": args.source_language,
-                        "target_language": args.target_language,
-                        "level": args.level,
-                    },
-                    cache_path=Path(args.cache) if args.cache else None,
+                    options=EnhancementOptions(
+                        limit=args.limit,
+                        dry_run=args.dry_run,
+                        max_retries=args.max_retries,
+                        metadata=generation_settings.metadata(),
+                        cache_path=Path(args.cache) if args.cache else None,
+                    ),
                 )
             )
             log.info(
@@ -146,7 +150,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "pipeline":
-            prompt_settings = PromptSettings(
+            generation_settings = GenerationSettings(
+                model=args.model,
                 source_language=args.source_language,
                 target_language=args.target_language,
                 level=args.level,
@@ -154,7 +159,10 @@ def main(argv: list[str] | None = None) -> int:
             provider = (
                 _dry_run_provider
                 if args.dry_run
-                else PydanticAiEnhancementProvider(args.model, prompt_settings)
+                else PydanticAiEnhancementProvider(
+                    generation_settings.model,
+                    generation_settings.prompt_settings(),
+                )
             )
             result = asyncio.run(
                 run_pipeline(
@@ -164,16 +172,12 @@ def main(argv: list[str] | None = None) -> int:
                     Path(args.failed_dir),
                     provider,
                     cache_dir=Path(args.cache_dir),
-                    limit=args.limit,
-                    dry_run=args.dry_run,
-                    max_retries=args.max_retries,
-                    metadata={
-                        "prompt_version": PROMPT_VERSION,
-                        "model": args.model,
-                        "source_language": args.source_language,
-                        "target_language": args.target_language,
-                        "level": args.level,
-                    },
+                    options=EnhancementOptions(
+                        limit=args.limit,
+                        dry_run=args.dry_run,
+                        max_retries=args.max_retries,
+                        metadata=generation_settings.metadata(),
+                    ),
                 )
             )
             log.info(

@@ -1,6 +1,6 @@
 from pydantic_ai import Agent
 
-from flashcard_enhancer.enhancer import AdditionalFields, RawCard
+from flashcard_enhancer.models import AdditionalFields, RawCard
 from flashcard_enhancer.prompts import PromptSettings, build_example_prompt
 
 
